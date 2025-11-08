@@ -1,8 +1,8 @@
 import os
+import re
 import streamlit as st
 from dotenv import load_dotenv
 from litellm import completion
-import re
 
 # ✅ Load Environment Variables
 load_dotenv()
@@ -21,39 +21,66 @@ if "username" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = {}
 
-# ------------------ CUSTOM CSS ------------------
+# ------------------ DARK MODE STYLING ------------------
 st.markdown("""
     <style>
         body, .stApp {
-            background-color: #f8f9fb;
+            background-color: #0e1117;
+            color: #e5e5e5;
             font-family: 'Poppins', sans-serif;
         }
+
+        /* Chat bubbles */
         .stChatMessage {
             border-radius: 12px;
             padding: 10px 16px;
             margin-bottom: 8px;
         }
         .stChatMessage[data-testid="stChatMessage-user"] {
-            background-color: #DCF8C6;
+            background-color: #1f2937;
             text-align: right;
+            color: #e5e5e5;
         }
         .stChatMessage[data-testid="stChatMessage-assistant"] {
-            background-color: #ffffff;
-            border: 1px solid #e5e5e5;
+            background-color: #2a2f3b;
+            border: 1px solid #333;
+            color: #dcdcdc;
         }
+
+        /* Sidebar styling */
         [data-testid="stSidebar"] {
-            background-color: #2c2f38;
+            background-color: #1a1d23;
             color: white;
         }
         [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
-            color: white !important;
+            color: #f8f9fa !important;
         }
+
+        /* Dropdowns and text boxes */
+        .stSelectbox div[data-baseweb="select"] > div {
+            background-color: #1f2937;
+            color: #f1f1f1;
+        }
+        .stTextInput input, .stPasswordInput input {
+            background-color: #1f2937;
+            color: #e5e5e5;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+
+        /* Buttons */
         .stButton>button {
             border-radius: 10px;
             background-color: #4CAF50;
             color: white;
             font-weight: 600;
         }
+        .stButton>button:hover {
+            background-color: #45a049;
+        }
+
+        /* Center footer text */
+        footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -107,7 +134,7 @@ with st.sidebar:
 
 # ------------------ MAIN CHAT INTERFACE ------------------
 st.title("🚀 Student Assistant Agent")
-st.write("Your personal AI-powered study companion using **Gemini API**")
+st.write("💡 Your personal **AI-powered study companion** using Gemini API")
 
 # Dropdown for mode selection
 mode = st.selectbox("📚 What do you want help with?", [
@@ -118,7 +145,7 @@ mode = st.selectbox("📚 What do you want help with?", [
     "💡 Get Motivation"
 ])
 
-# Display chat messages
+# Display previous messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
@@ -126,52 +153,48 @@ for msg in st.session_state.messages:
 # ------------------ EDUCATION FILTER FUNCTION ------------------
 def is_educational_query(text):
     """
-    Check if the query is related to educational topics.
+    Detect whether a query is related to educational content.
     """
     education_keywords = [
         "study", "learn", "subject", "exam", "physics", "chemistry", "math", "biology",
         "history", "notes", "explanation", "education", "assignment", "topic", "summarize",
         "plan", "science", "programming", "python", "cpp", "java", "project", "report",
-        "motivation", "university", "school", "college"
+        "motivation", "university", "school", "college", "book", "lecture", "course"
     ]
     return any(re.search(rf"\\b{k}\\b", text.lower()) for k in education_keywords)
 
 # ------------------ USER INPUT ------------------
 if st.session_state.logged_in:
-    user_input = st.chat_input("Type your message here...")
+    user_input = st.chat_input("💬 Type your message here...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # 🔒 Restriction: only reply to educational queries
+        # 🔒 Study-only restriction
         if not is_educational_query(user_input):
             restricted_msg = (
                 "📘 **I'm your Student Study Agent.**\n\n"
-                "I can only assist with educational and academic queries such as:\n"
-                "- Explaining study topics\n"
-                "- Helping with assignments\n"
-                "- Summarizing notes\n"
-                "- Creating study plans\n"
-                "- Providing exam motivation\n\n"
-                "Please ask something related to your studies. 😊"
+                "I only respond to study-related questions — like explaining topics, "
+                "helping with assignments, preparing notes, or making study plans.\n\n"
+                "Please ask something academic 😊"
             )
             with st.chat_message("assistant"):
                 st.markdown(restricted_msg)
             st.session_state.messages.append({"role": "assistant", "content": restricted_msg})
 
         else:
-            # Normal response for study-related content
+            # Educational Query Handling
             if mode.startswith("❓"):
-                prompt = f"Answer this clearly for students: {user_input}"
+                prompt = f"Answer clearly for a student: {user_input}"
             elif mode.startswith("🧠"):
-                prompt = f"Explain this topic for a beginner student: {user_input}"
+                prompt = f"Explain this topic simply for a beginner student: {user_input}"
             elif mode.startswith("📝"):
                 prompt = f"Summarize this educational text into bullet points: {user_input}"
             elif mode.startswith("📅"):
                 prompt = f"Make a 7-day study plan for: {user_input}"
             elif mode.startswith("💡"):
-                prompt = f"Give a motivational study tip for this situation: {user_input}"
+                prompt = f"Give a motivational study tip about: {user_input}"
             else:
                 prompt = user_input
 
@@ -188,12 +211,13 @@ if st.session_state.logged_in:
 
             except Exception as e:
                 st.error(f"⚠️ Error from Gemini: {str(e)}")
+
 else:
-    st.warning("Please login to start chatting.")
+    st.warning("🔐 Please login to start chatting.")
 
 # ------------------ FOOTER ------------------
 st.markdown("---")
 st.markdown(
-    "<p style='text-align:center;color:gray;'>Made with ❤️ by <b>@Waniza Khan</b> | © 2025 All rights reserved.</p>",
+    "<p style='text-align:center;color:#8b949e;'>Made with ❤️ by <b>@Waniza Khan</b> | © 2025 All rights reserved.</p>",
     unsafe_allow_html=True
 )
