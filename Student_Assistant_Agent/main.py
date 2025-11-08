@@ -1,5 +1,4 @@
 import os
-import re
 import streamlit as st
 from dotenv import load_dotenv
 from litellm import completion
@@ -11,7 +10,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 # ✅ Streamlit Page Config
 st.set_page_config(page_title="Student Assistant Agent", page_icon="🚀", layout="wide")
 
-# ------------------ SESSION STATE SETUP ------------------
+# ------------------ SESSION STATE ------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "logged_in" not in st.session_state:
@@ -24,62 +23,16 @@ if "history" not in st.session_state:
 # ------------------ DARK MODE STYLING ------------------
 st.markdown("""
     <style>
-        body, .stApp {
-            background-color: #0e1117;
-            color: #e5e5e5;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        /* Chat bubbles */
-        .stChatMessage {
-            border-radius: 12px;
-            padding: 10px 16px;
-            margin-bottom: 8px;
-        }
-        .stChatMessage[data-testid="stChatMessage-user"] {
-            background-color: #1f2937;
-            text-align: right;
-            color: #e5e5e5;
-        }
-        .stChatMessage[data-testid="stChatMessage-assistant"] {
-            background-color: #2a2f3b;
-            border: 1px solid #333;
-            color: #dcdcdc;
-        }
-
-        /* Sidebar styling */
-        [data-testid="stSidebar"] {
-            background-color: #1a1d23;
-            color: white;
-        }
-        [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
-            color: #f8f9fa !important;
-        }
-
-        /* Dropdowns and text boxes */
-        .stSelectbox div[data-baseweb="select"] > div {
-            background-color: #1f2937;
-            color: #f1f1f1;
-        }
-        .stTextInput input, .stPasswordInput input {
-            background-color: #1f2937;
-            color: #e5e5e5;
-            border: 1px solid #333;
-            border-radius: 8px;
-        }
-
-        /* Buttons */
-        .stButton>button {
-            border-radius: 10px;
-            background-color: #4CAF50;
-            color: white;
-            font-weight: 600;
-        }
-        .stButton>button:hover {
-            background-color: #45a049;
-        }
-
-        /* Center footer text */
+        body, .stApp { background-color: #0e1117; color: #e5e5e5; font-family: 'Poppins', sans-serif; }
+        .stChatMessage { border-radius: 12px; padding: 10px 16px; margin-bottom: 8px; }
+        .stChatMessage[data-testid="stChatMessage-user"] { background-color: #1f2937; text-align: right; color: #e5e5e5; }
+        .stChatMessage[data-testid="stChatMessage-assistant"] { background-color: #2a2f3b; border: 1px solid #333; color: #dcdcdc; }
+        [data-testid="stSidebar"] { background-color: #1a1d23; color: white; }
+        [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: #f8f9fa !important; }
+        .stSelectbox div[data-baseweb="select"] > div { background-color: #1f2937; color: #f1f1f1; }
+        .stTextInput input, .stPasswordInput input { background-color: #1f2937; color: #e5e5e5; border: 1px solid #333; border-radius: 8px; }
+        .stButton>button { border-radius: 10px; background-color: #4CAF50; color: white; font-weight: 600; }
+        .stButton>button:hover { background-color: #45a049; }
         footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -150,19 +103,6 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ------------------ EDUCATION FILTER FUNCTION ------------------
-def is_educational_query(text):
-    """
-    Detect whether a query is related to educational content.
-    """
-    education_keywords = [
-        "study", "learn", "subject", "exam", "physics", "chemistry", "math", "biology",
-        "history", "notes", "explanation", "education", "assignment", "topic", "summarize",
-        "plan", "science", "programming", "python", "cpp", "java", "project", "report",
-        "motivation", "university", "school", "college", "book", "lecture", "course"
-    ]
-    return any(re.search(rf"\\b{k}\\b", text.lower()) for k in education_keywords)
-
 # ------------------ USER INPUT ------------------
 if st.session_state.logged_in:
     user_input = st.chat_input("💬 Type your message here...")
@@ -171,47 +111,33 @@ if st.session_state.logged_in:
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # 🔒 Study-only restriction
-        if not is_educational_query(user_input):
-            restricted_msg = (
-                "📘 **I'm your Student Study Agent.**\n\n"
-                "I only respond to study-related questions — like explaining topics, "
-                "helping with assignments, preparing notes, or making study plans.\n\n"
-                "Please ask something academic 😊"
-            )
-            with st.chat_message("assistant"):
-                st.markdown(restricted_msg)
-            st.session_state.messages.append({"role": "assistant", "content": restricted_msg})
-
+        # Directly send to Gemini API
+        if mode.startswith("❓"):
+            prompt = f"Answer clearly for a student: {user_input}"
+        elif mode.startswith("🧠"):
+            prompt = f"Explain this topic simply for a beginner student: {user_input}"
+        elif mode.startswith("📝"):
+            prompt = f"Summarize this educational text into bullet points: {user_input}"
+        elif mode.startswith("📅"):
+            prompt = f"Make a 7-day study plan for: {user_input}"
+        elif mode.startswith("💡"):
+            prompt = f"Give a motivational study tip about: {user_input}"
         else:
-            # Educational Query Handling
-            if mode.startswith("❓"):
-                prompt = f"Answer clearly for a student: {user_input}"
-            elif mode.startswith("🧠"):
-                prompt = f"Explain this topic simply for a beginner student: {user_input}"
-            elif mode.startswith("📝"):
-                prompt = f"Summarize this educational text into bullet points: {user_input}"
-            elif mode.startswith("📅"):
-                prompt = f"Make a 7-day study plan for: {user_input}"
-            elif mode.startswith("💡"):
-                prompt = f"Give a motivational study tip about: {user_input}"
-            else:
-                prompt = user_input
+            prompt = user_input
 
-            try:
-                response = completion(
-                    model="gemini/gemini-2.0-flash",
-                    messages=[{"role": "user", "content": prompt}],
-                    api_key=api_key
-                )
-                reply = response["choices"][0]["message"]["content"]
-                with st.chat_message("assistant"):
-                    st.markdown(reply)
-                st.session_state.messages.append({"role": "assistant", "content": reply})
+        try:
+            response = completion(
+                model="gemini/gemini-2.0-flash",
+                messages=[{"role": "user", "content": prompt}],
+                api_key=api_key
+            )
+            reply = response["choices"][0]["message"]["content"]
+            with st.chat_message("assistant"):
+                st.markdown(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
 
-            except Exception as e:
-                st.error(f"⚠️ Error from Gemini: {str(e)}")
-
+        except Exception as e:
+            st.error(f"⚠️ Error from Gemini: {str(e)}")
 else:
     st.warning("🔐 Please login to start chatting.")
 
