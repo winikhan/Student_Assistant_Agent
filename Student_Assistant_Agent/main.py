@@ -3,11 +3,11 @@ import streamlit as st
 from dotenv import load_dotenv
 from litellm import completion
 
-# ✅ Load Environment Variables
+# Load API key
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Streamlit Page Config
+# Page config
 st.set_page_config(page_title="Student Assistant", layout="centered")
 
 # ------------------ SESSION STATE ------------------
@@ -20,27 +20,27 @@ if "username" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = {}
 if "mode" not in st.session_state:
-    st.session_state.mode = "login"  # login/signup toggle
+    st.session_state.mode = "login"
 
-# ------------------ STYLING ------------------
+# ------------------ DARK MODE STYLING ------------------
 st.markdown("""
 <style>
-body, .stApp { background-color: #f0f2f5; font-family: 'Helvetica Neue', sans-serif; }
+body, .stApp { background-color: #0e1117; color: #e5e5e5; font-family: 'Helvetica Neue', sans-serif; overflow: hidden;}
 .stChatMessage { border-radius: 12px; padding: 10px 16px; margin-bottom: 8px; }
 .stChatMessage[data-testid="stChatMessage-user"] { background-color: #1f2937; text-align: right; color: #e5e5e5; }
 .stChatMessage[data-testid="stChatMessage-assistant"] { background-color: #2a2f3b; border: 1px solid #333; color: #dcdcdc; }
 .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
-.login-box { width: 360px; background-color: #fff; padding: 40px 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-.login-box h2 { text-align: center; margin-bottom: 30px; font-weight: 600; color: #333; }
-.stTextInput>div>div>input { height: 40px !important; font-size: 14px !important; padding: 0 10px !important; }
+.login-box { width: 360px; background-color: #1a1d23; padding: 40px 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.5); color: #e5e5e5; }
+.login-box h2 { text-align: center; margin-bottom: 30px; font-weight: 600; color: #e5e5e5; }
+.stTextInput>div>div>input { height: 40px !important; font-size: 14px !important; padding: 0 10px !important; background-color: #0e1117 !important; color: #e5e5e5 !important; border: 1px solid #333 !important; }
 .stButton>button { width: 100%; padding: 10px 0 !important; background-color: #1877f2; color: white; font-size: 16px; border-radius: 6px; font-weight: 600; }
 .stButton>button:hover { background-color: #166fe5; }
-.toggle-box { text-align: center; margin-top: 20px; font-size: 14px; color: #555; }
+.toggle-box { text-align: center; margin-top: 20px; font-size: 14px; color: #aaa; }
 .toggle-box button { background: none; border: none; color: #1877f2; font-weight: 600; cursor: pointer; }
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ LOGIN / SIGNUP SCREEN ------------------
+# ------------------ LOGIN / SIGNUP ------------------
 if not st.session_state.logged_in:
     st.markdown('<div class="login-container"><div class="login-box">', unsafe_allow_html=True)
 
@@ -53,7 +53,6 @@ if not st.session_state.logged_in:
     with col1:
         if st.button("Login"):
             if username and password:
-                # Simple in-memory login
                 if username in st.session_state.history:
                     st.session_state.logged_in = True
                     st.session_state.username = username
@@ -83,9 +82,8 @@ if not st.session_state.logged_in:
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ------------------ MAIN CHAT INTERFACE ------------------
+# ------------------ CHAT INTERFACE ------------------
 else:
-    # Sidebar for history & logout
     with st.sidebar:
         st.markdown(f"👋 **Hello, {st.session_state.username}!**")
         if st.button("🚪 Logout"):
@@ -115,12 +113,10 @@ else:
         "💡 Get Motivation"
     ])
 
-    # Display previous messages
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # User input
     user_input = st.chat_input("💬 Type your message here...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -128,7 +124,7 @@ else:
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # Prepare prompt based on mode
+        # Mode-based prompt
         if mode.startswith("❓"):
             prompt = f"Answer clearly for a student: {user_input}"
         elif mode.startswith("🧠"):
@@ -153,6 +149,5 @@ else:
             st.session_state.history[st.session_state.username] = st.session_state.messages.copy()
             with st.chat_message("assistant"):
                 st.markdown(reply)
-
         except Exception as e:
             st.error(f"⚠️ Error from Gemini: {str(e)}")
