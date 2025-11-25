@@ -33,55 +33,61 @@ st.markdown("""
         .stTextInput input, .stPasswordInput input { background-color: #1f2937; color: #e5e5e5; border: 1px solid #333; border-radius: 8px; }
         .stButton>button { border-radius: 10px; background-color: #4CAF50; color: white; font-weight: 600; }
         .stButton>button:hover { background-color: #45a049; }
-        footer {position: fixed; bottom: 0; width: 100%; text-align: center; color: #8b949e; background-color: #0e1117; padding: 10px;}
+        /* Center login/signup screen */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+        }
+        .login-box {
+            background-color: #1a1d23;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# ------------------ SIDEBAR ------------------
-with st.sidebar:
-    st.title("🎓 Student Assistant")
-    st.markdown("---")
+# ------------------ LOGIN / SIGNUP SCREEN ------------------
+if not st.session_state.logged_in:
+    st.markdown('<div class="login-container"><div class="login-box">', unsafe_allow_html=True)
+    st.markdown("## 🔐 Login / Sign Up", unsafe_allow_html=True)
+    
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-    if not st.session_state.logged_in:
-        st.subheader("🔐 Login / Sign Up")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Login"):
-                if username and password:
-                    # ---------------- DATABASE LOGIN CHECK PLACEHOLDER ----------------
-                    # Example:
-                    # if check_user_in_db(username, password):
-                    #     st.session_state.logged_in = True
-                    #     st.session_state.username = username
-                    # else:
-                    #     st.error("Invalid username or password.")
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    if username not in st.session_state.history:
-                        st.session_state.history[username] = []
-                    st.success(f"Welcome back, {username}!")
-                else:
-                    st.error("Please enter username & password.")
-        with col2:
-            if st.button("Sign Up"):
-                if username and password:
-                    # ---------------- DATABASE SIGNUP PLACEHOLDER ----------------
-                    # Example:
-                    # if not user_exists_in_db(username):
-                    #     create_user_in_db(username, password)
-                    #     st.success(f"Account created! Welcome {username}")
-                    # else:
-                    #     st.error("Username already exists.")
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Login"):
+            if username and password:
+                # DATABASE LOGIN CHECK PLACEHOLDER
+                # if check_user_in_db(username, password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                if username not in st.session_state.history:
                     st.session_state.history[username] = []
-                    st.success(f"Account created! Welcome {username}")
-                else:
-                    st.error("Please fill in all fields.")
-    else:
+                st.success(f"Welcome back, {username}!")
+            else:
+                st.error("Please enter username & password.")
+    with col2:
+        if st.button("Sign Up"):
+            if username and password:
+                # DATABASE SIGNUP PLACEHOLDER
+                # if not user_exists_in_db(username):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.session_state.history[username] = []
+                st.success(f"Account created! Welcome {username}")
+            else:
+                st.error("Please fill in all fields.")
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+# ------------------ MAIN APP AFTER LOGIN ------------------
+else:
+    # ------------------ SIDEBAR ------------------
+    with st.sidebar:
         st.markdown(f"👋 **Hello, {st.session_state.username}!**")
         if st.button("🚪 Logout"):
             st.session_state.logged_in = False
@@ -94,12 +100,15 @@ with st.sidebar:
             user_history = st.session_state.history[st.session_state.username]
             if len(user_history) == 0:
                 st.info("No chats yet.")
+            else:
+                for chat in user_history[-10:][::-1]:  # Last 10 chats
+                    st.markdown(f"- {chat}")
+
         st.markdown("---")
         if st.button("➕ New Chat"):
             st.session_state.messages = []
 
-# ------------------ MAIN CHAT INTERFACE ------------------
-if st.session_state.logged_in:
+    # ------------------ MAIN CHAT INTERFACE ------------------
     st.title("🚀 Student Assistant Agent")
     st.write("💡 Your personal **AI-powered study companion** using Gemini API")
 
@@ -121,10 +130,11 @@ if st.session_state.logged_in:
     user_input = st.chat_input("💬 Type your message here...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.history[st.session_state.username].append(user_input)  # Save to history
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        # Directly send to Gemini API
+        # Prepare prompt based on mode
         if mode.startswith("❓"):
             prompt = f"Answer clearly for a student: {user_input}"
         elif mode.startswith("🧠"):
@@ -151,11 +161,3 @@ if st.session_state.logged_in:
 
         except Exception as e:
             st.error(f"⚠️ Error from Gemini: {str(e)}")
-else:
-    st.warning("🔐 Please login to start chatting.")
-
-# ------------------ FOOTER ------------------
-st.markdown(
-    "<footer>Made with ❤️ by <b>The Schema Squad</b> | © 2025 All rights reserved.</footer>",
-    unsafe_allow_html=True
-)
