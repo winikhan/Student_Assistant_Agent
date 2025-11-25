@@ -33,7 +33,7 @@ st.markdown("""
         .stTextInput input, .stPasswordInput input { background-color: #1f2937; color: #e5e5e5; border: 1px solid #333; border-radius: 8px; }
         .stButton>button { border-radius: 10px; background-color: #4CAF50; color: white; font-weight: 600; }
         .stButton>button:hover { background-color: #45a049; }
-        footer {visibility: hidden;}
+        footer {position: fixed; bottom: 0; width: 100%; text-align: center; color: #8b949e; background-color: #0e1117; padding: 10px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -51,6 +51,13 @@ with st.sidebar:
         with col1:
             if st.button("Login"):
                 if username and password:
+                    # ---------------- DATABASE LOGIN CHECK PLACEHOLDER ----------------
+                    # Example:
+                    # if check_user_in_db(username, password):
+                    #     st.session_state.logged_in = True
+                    #     st.session_state.username = username
+                    # else:
+                    #     st.error("Invalid username or password.")
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     if username not in st.session_state.history:
@@ -61,6 +68,13 @@ with st.sidebar:
         with col2:
             if st.button("Sign Up"):
                 if username and password:
+                    # ---------------- DATABASE SIGNUP PLACEHOLDER ----------------
+                    # Example:
+                    # if not user_exists_in_db(username):
+                    #     create_user_in_db(username, password)
+                    #     st.success(f"Account created! Welcome {username}")
+                    # else:
+                    #     st.error("Username already exists.")
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.session_state.history[username] = []
@@ -76,7 +90,6 @@ with st.sidebar:
 
         st.markdown("---")
         st.subheader("🕒 Chat History")
-
         if st.session_state.username in st.session_state.history:
             user_history = st.session_state.history[st.session_state.username]
             if len(user_history) == 0:
@@ -86,25 +99,25 @@ with st.sidebar:
             st.session_state.messages = []
 
 # ------------------ MAIN CHAT INTERFACE ------------------
-st.title("🚀 Student Assistant Agent")
-st.write("💡 Your personal **AI-powered study companion** using Gemini API")
-
-# Dropdown for mode selection
-mode = st.selectbox("📚 What do you want help with?", [
-    "❓ Ask a Question",
-    "🧠 Explain a Topic",
-    "📝 Summarize Text",
-    "📅 Get a Study Plan",
-    "💡 Get Motivation"
-])
-
-# Display previous messages
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# ------------------ USER INPUT ------------------
 if st.session_state.logged_in:
+    st.title("🚀 Student Assistant Agent")
+    st.write("💡 Your personal **AI-powered study companion** using Gemini API")
+
+    # Dropdown for mode selection
+    mode = st.selectbox("📚 What do you want help with?", [
+        "❓ Ask a Question",
+        "🧠 Explain a Topic",
+        "📝 Summarize Text",
+        "📅 Get a Study Plan",
+        "💡 Get Motivation"
+    ])
+
+    # Display previous messages
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # ------------------ USER INPUT ------------------
     user_input = st.chat_input("💬 Type your message here...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -142,8 +155,7 @@ else:
     st.warning("🔐 Please login to start chatting.")
 
 # ------------------ FOOTER ------------------
-st.markdown("---")
 st.markdown(
-    "<p style='text-align:center;color:#8b949e;'>Made with ❤️ by <b>@Waniza Khan</b> | © 2025 All rights reserved.</p>",
+    "<footer>Made with ❤️ by <b>The Schema Squad</b> | © 2025 All rights reserved.</footer>",
     unsafe_allow_html=True
 )
