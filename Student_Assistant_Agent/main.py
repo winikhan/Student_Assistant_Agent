@@ -1,44 +1,14 @@
 import os
-import mysql.connector
 import streamlit as st
 from dotenv import load_dotenv
 from litellm import completion
-from datetime import datetime
 
 # ✅ Load Environment Variables
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# MySQL Connection
-conn = mysql.connector.connect(
-    host=os.getenv("MYSQL_HOST", "localhost"),
-    user=os.getenv("MYSQL_USER", "root"),
-    password=os.getenv("MYSQL_PASSWORD", ""),
-    database=os.getenv("MYSQL_DB", "student_assistant")
-)
-cursor = conn.cursor()
-
-# Create tables if not exist
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL
-)
-""")
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS chat_history (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    message TEXT NOT NULL,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
-""")
-
-conn.commit()
+# Streamlit Page Config
+st.set_page_config(page_title="Student Assistant", layout="centered")
 
 # ------------------ SESSION STATE ------------------
 if "messages" not in st.session_state:
@@ -47,31 +17,34 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = None
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
+if "history" not in st.session_state:
+    st.session_state.history = {}
+if "mode" not in st.session_state:
+    st.session_state.mode = "login"  # login/signup toggle
 
-# ------------------ DARK MODE STYLING ------------------
+# ------------------ STYLING ------------------
 st.markdown("""
 <style>
-body, .stApp { background-color: #0e1117; color: #e5e5e5; font-family: 'Poppins', sans-serif; }
+body, .stApp { background-color: #f0f2f5; font-family: 'Helvetica Neue', sans-serif; }
 .stChatMessage { border-radius: 12px; padding: 10px 16px; margin-bottom: 8px; }
 .stChatMessage[data-testid="stChatMessage-user"] { background-color: #1f2937; text-align: right; color: #e5e5e5; }
 .stChatMessage[data-testid="stChatMessage-assistant"] { background-color: #2a2f3b; border: 1px solid #333; color: #dcdcdc; }
-[data-testid="stSidebar"] { background-color: #1a1d23; color: white; }
-[data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: #f8f9fa !important; }
-.stSelectbox div[data-baseweb="select"] > div { background-color: #1f2937; color: #f1f1f1; }
-.stTextInput input, .stPasswordInput input { background-color: #1f2937; color: #e5e5e5; border: 1px solid #333; border-radius: 8px; }
-.stButton>button { border-radius: 10px; background-color: #4CAF50; color: white; font-weight: 600; }
-.stButton>button:hover { background-color: #45a049; }
-.login-container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 90vh; }
-.login-box { background-color: #1a1d23; padding: 40px; border-radius: 12px; box-shadow: 0px 0px 20px rgba(0,0,0,0.5); }
+.login-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
+.login-box { width: 360px; background-color: #fff; padding: 40px 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+.login-box h2 { text-align: center; margin-bottom: 30px; font-weight: 600; color: #333; }
+.stTextInput>div>div>input { height: 40px !important; font-size: 14px !important; padding: 0 10px !important; }
+.stButton>button { width: 100%; padding: 10px 0 !important; background-color: #1877f2; color: white; font-size: 16px; border-radius: 6px; font-weight: 600; }
+.stButton>button:hover { background-color: #166fe5; }
+.toggle-box { text-align: center; margin-top: 20px; font-size: 14px; color: #555; }
+.toggle-box button { background: none; border: none; color: #1877f2; font-weight: 600; cursor: pointer; }
 </style>
 """, unsafe_allow_html=True)
 
 # ------------------ LOGIN / SIGNUP SCREEN ------------------
 if not st.session_state.logged_in:
     st.markdown('<div class="login-container"><div class="login-box">', unsafe_allow_html=True)
-    st.markdown("## 🔐 Login / Sign Up", unsafe_allow_html=True)
+
+    st.markdown(f"## {'Login' if st.session_state.mode=='login' else 'Sign Up'}", unsafe_allow_html=True)
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -80,62 +53,57 @@ if not st.session_state.logged_in:
     with col1:
         if st.button("Login"):
             if username and password:
-                cursor.execute("SELECT id FROM users WHERE username=%s AND password=%s", (username, password))
-                result = cursor.fetchone()
-                if result:
+                # Simple in-memory login
+                if username in st.session_state.history:
                     st.session_state.logged_in = True
                     st.session_state.username = username
-                    st.session_state.user_id = result[0]
-                    # Load previous chat messages
-                    cursor.execute("SELECT role, message FROM chat_history WHERE user_id=%s ORDER BY id ASC", (st.session_state.user_id,))
-                    messages = cursor.fetchall()
-                    st.session_state.messages = [{"role": role, "content": msg} for role, msg in messages]
+                    st.session_state.messages = st.session_state.history[username]
                     st.success(f"Welcome back, {username}!")
                 else:
-                    st.error("Invalid username or password.")
+                    st.error("User not found. Try Sign Up.")
             else:
                 st.error("Please enter username & password.")
     with col2:
         if st.button("Sign Up"):
             if username and password:
-                try:
-                    cursor.execute("INSERT INTO users (username, password) VALUES (%s,%s)", (username, password))
-                    conn.commit()
+                if username not in st.session_state.history:
                     st.session_state.logged_in = True
                     st.session_state.username = username
-                    st.session_state.user_id = cursor.lastrowid
                     st.session_state.messages = []
+                    st.session_state.history[username] = []
                     st.success(f"Account created! Welcome {username}")
-                except mysql.connector.Error as e:
+                else:
                     st.error("Username already exists.")
             else:
                 st.error("Please fill in all fields.")
 
+    # Toggle login/signup
+    if st.button("Switch to " + ("Sign Up" if st.session_state.mode=="login" else "Login")):
+        st.session_state.mode = "signup" if st.session_state.mode=="login" else "login"
+
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-# ------------------ MAIN APP AFTER LOGIN ------------------
+# ------------------ MAIN CHAT INTERFACE ------------------
 else:
-    # Sidebar for history and logout
+    # Sidebar for history & logout
     with st.sidebar:
         st.markdown(f"👋 **Hello, {st.session_state.username}!**")
         if st.button("🚪 Logout"):
             st.session_state.logged_in = False
             st.session_state.username = None
-            st.session_state.user_id = None
             st.session_state.messages = []
 
         st.markdown("---")
         st.subheader("🕒 Chat History")
         if st.session_state.messages:
-            for chat in st.session_state.messages[-20:]:  # show last 20 messages
-                st.markdown(f"- {chat['role'].capitalize()}: {chat['content']}")
+            for chat in st.session_state.messages[-20:]:
+                st.markdown(f"- **{chat['role'].capitalize()}**: {chat['content']}")
         else:
             st.info("No chats yet.")
         st.markdown("---")
         if st.button("➕ New Chat"):
             st.session_state.messages = []
 
-    # Main Chat Interface
     st.title("🚀 Student Assistant Agent")
     st.write("💡 Your personal **AI-powered study companion** using Gemini API")
 
@@ -156,11 +124,7 @@ else:
     user_input = st.chat_input("💬 Type your message here...")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
-        cursor.execute(
-            "INSERT INTO chat_history (user_id, role, message) VALUES (%s,%s,%s)",
-            (st.session_state.user_id, "user", user_input)
-        )
-        conn.commit()
+        st.session_state.history[st.session_state.username] = st.session_state.messages.copy()
         with st.chat_message("user"):
             st.markdown(user_input)
 
@@ -186,11 +150,7 @@ else:
             )
             reply = response["choices"][0]["message"]["content"]
             st.session_state.messages.append({"role": "assistant", "content": reply})
-            cursor.execute(
-                "INSERT INTO chat_history (user_id, role, message) VALUES (%s,%s,%s)",
-                (st.session_state.user_id, "assistant", reply)
-            )
-            conn.commit()
+            st.session_state.history[st.session_state.username] = st.session_state.messages.copy()
             with st.chat_message("assistant"):
                 st.markdown(reply)
 
